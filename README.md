@@ -1,123 +1,67 @@
-# Welcome to your Polymet AI project
+# Internflare Frontend
 
-## Project info
+Internflare is a career platform frontend for discovering internships and jobs, building evidence-based profiles, and exploring learning and career pathways. It includes talent and employer experiences such as onboarding, skills assessments, applications, portfolio management, mentoring, billing, and listing management.
 
-**Created with**: [Polymet AI](https://polymet.ai) - AI product designer
+## Technology
 
-## How can I edit this code?
-
-There are several ways of editing your application.
-
-**Use Polymet AI**
-
-Simply visit [Polymet AI](https://polymet.ai) and start designing or prompting.
-
-Changes made via Polymet AI will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Polymet AI.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
+- React 18
 - TypeScript
-- React
-- shadcn-ui
+- Vite
 - Tailwind CSS
+- React Router
+- Better Auth React client
 
-## Authentication
+## Requirements
 
-The frontend uses Better Auth's React client to communicate with the Express auth service. Copy `.env.example` to `.env` and set `VITE_BETTER_AUTH_URL` to the backend service URL (defaults to `http://localhost:3001`). The auth service must allow the frontend origin in its `CORS_ORIGINS` setting and have its PostgreSQL database configured.
+- Node.js 20.11 or later
+- npm
 
-Run the backend auth service and frontend in separate terminals:
+## Installation
+
+From this directory, install the frontend dependencies:
 
 ```sh
-# backend/auth-service
+npm install
+```
+
+## Configuration
+
+Create a local environment file from the example:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Set `VITE_BETTER_AUTH_URL` in `.env` to the URL of the authentication API. For local development, the default is:
+
+```dotenv
+VITE_BETTER_AUTH_URL=http://localhost:3001
+```
+
+The authentication API must be available at that URL for sign-in, sign-up, social authentication, session, and sign-out features to work. The frontend does not contain provider secrets; OAuth credentials should never be placed in `VITE_` variables.
+
+## Development
+
+Start the Vite development server:
+
+```sh
 npm run dev
-
-# internflare-frontend
-npm run dev
 ```
 
-Email/password registration and sign-in, configured social sign-in providers, session display, and sign-out use Better Auth. OAuth requires valid provider credentials and callback URLs configured on the backend/provider consoles. The employer onboarding form currently uses the employer selection to choose the next screen; the auth service only persists Better Auth's standard user fields.
+Vite prints the local URL in the terminal, normally `http://localhost:5173`.
 
-## How can I deploy this project?
+## Available scripts
 
-You have multiple deployment options:
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the Vite development server |
+| `npm run build` | Create a production build in `dist/` |
+| `npm run preview` | Preview the production build locally |
+| `npm run type-check` | Run the TypeScript check |
+| `npm run lint` | Lint the frontend source |
+| `npm run lint:fix` | Automatically fix supported lint issues |
+| `npm run format` | Format source and documentation files |
 
-**Deploy with Polymet AI**
+## Authentication features
 
-Simply open [Polymet AI](https://polymet.ai) and use the deployment features available in your project dashboard.
-
-**Deploy with Vercel**
-
-```sh
-npm i -g vercel
-vercel
-```
-
-**Deploy with Netlify**
-
-```sh
-npm run build
-# Then drag and drop the 'dist' folder to netlify.com/drop
-```
-
-## Available Scripts
-
-| Script | Command | Description |
-|--------|---------|-------------|
-| **Dev** | `npm run dev` | Start the development server with hot reload |
-| **Build** | `npm run build` | Create an optimized production build |
-| **Preview** | `npm run preview` | Serve the production build locally |
-| **Type Check** | `npm run type-check` | Verify TypeScript types without emitting |
-| **Lint** | `npm run lint` | Check code for linting errors |
-| **Lint Fix** | `npm run lint:fix` | Automatically fix linting errors |
-| **Format** | `npm run format` | Format code with Prettier |
-
-## Library Versions
-
-| Library | Version | Purpose |
-|---------|---------|---------|
-| React | 18.3.1 | UI framework |
-| Vite | 6.2.0 | Build tool & dev server |
-| TypeScript | 5.7.2 | Type safety |
-| Tailwind CSS | 3.4.17 | Utility-first styling |
-| React Router DOM | 6.26.2 | Client-side routing |
-| Recharts | 2.12.7 | Data visualization |
-| Zod | 3.23.8 | Schema validation |
+The frontend integrates Better Auth's React client for email/password sign-up and sign-in, social sign-in, session display, and sign-out. Employer account selection currently routes users to employer onboarding; employer-specific account details are not yet collected by the authentication flow.
