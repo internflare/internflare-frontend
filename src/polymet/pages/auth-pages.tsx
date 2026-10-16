@@ -19,8 +19,10 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import authClient from "@/lib/auth-client";
 
+// Lightweight form validation; Better Auth remains responsible for authentication.
 const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
+// Shared field layout keeps labels, hints, and validation messages consistent.
 function Field({
   id,
   label,
@@ -64,6 +66,7 @@ function PasswordInput({
   onChange: (v: string) => void;
   invalid?: boolean;
 }) {
+  // Visibility is local to this input so toggling it doesn't affect other passwords.
   const [show, setShow] = useState(false);
   return (
     <div className="relative">
@@ -118,6 +121,7 @@ type SignInAction =
   | { type: "request-failed"; message: string }
   | { type: "request-finished" };
 
+// Keep sign-in validation and request status transitions together.
 function signInReducer(state: SignInState, action: SignInAction): SignInState {
   switch (action.type) {
     case "email-changed":
@@ -173,9 +177,11 @@ export function SignInPage() {
     } catch {
       dispatch({
         type: "request-failed",
-        message: "Unable to reach the authentication service. Please try again.",
+        message:
+          "Unable to reach the authentication service. Please try again.",
       });
     } finally {
+      // Re-enable the form after either a successful or failed request.
       dispatch({ type: "request-finished" });
     }
   };
@@ -315,6 +321,7 @@ function signUpReducer(state: SignUpState, action: SignUpAction): SignUpState {
 export function SignUpPage() {
   const { search } = useLocation();
   const [state, dispatch] = useReducer(signUpReducer, {
+    // Signup links can preselect the employer flow with ?type=employer.
     type: search.includes("employer") ? "employer" : "talent",
     form: { name: "", email: "", password: "", company: "" },
     consent: false,
@@ -325,8 +332,8 @@ export function SignUpPage() {
   const { type, form, consent, errors, isSubmitting, requestError } = state;
   const { switchCandidate } = usePathway();
   const navigate = useNavigate();
-  const set = (field: keyof SignUpForm) =>
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+  const set =
+    (field: keyof SignUpForm) => (e: React.ChangeEvent<HTMLInputElement>) => {
       const actionByField = {
         name: { type: "name-changed", value: e.target.value },
         email: { type: "email-changed", value: e.target.value },
@@ -350,6 +357,7 @@ export function SignUpPage() {
 
     dispatch({ type: "request-started" });
     try {
+      // Account type and company currently select the next screen; Better Auth stores name, email, and password.
       const result = await authClient.signUp.email({
         name: form.name.trim(),
         email: form.email,
@@ -368,7 +376,8 @@ export function SignUpPage() {
     } catch {
       dispatch({
         type: "request-failed",
-        message: "Unable to reach the authentication service. Please try again.",
+        message:
+          "Unable to reach the authentication service. Please try again.",
       });
     } finally {
       dispatch({ type: "request-finished" });
@@ -560,6 +569,7 @@ export function SignUpPage() {
   );
 }
 
+// This screen currently demonstrates the reset flow; it does not send an email yet.
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
@@ -651,6 +661,7 @@ function resetPasswordReducer(
   }
 }
 
+// The reset form validates locally until a reset-token API flow is connected.
 export function ResetPasswordPage() {
   const [state, dispatch] = useReducer(resetPasswordReducer, {
     password: "",
@@ -682,9 +693,15 @@ export function ResetPasswordPage() {
         onSubmit={(e) => {
           e.preventDefault();
           if (pw.length < 8)
-            dispatch({ type: "validation-failed", message: "Use at least 8 characters" });
+            dispatch({
+              type: "validation-failed",
+              message: "Use at least 8 characters",
+            });
           else if (pw !== confirm)
-            dispatch({ type: "validation-failed", message: "Passwords don't match" });
+            dispatch({
+              type: "validation-failed",
+              message: "Passwords don't match",
+            });
           else dispatch({ type: "password-updated" });
         }}
         className="space-y-4"
@@ -743,6 +760,7 @@ function VerifyEmailPage({
         <Button asChild className="w-full">
           <Link to={next}>I've verified — continue</Link>
         </Button>
+        {/* This demo action updates the UI but does not resend a real email. */}
         <Button
           variant="outline"
           className="w-full bg-card"
