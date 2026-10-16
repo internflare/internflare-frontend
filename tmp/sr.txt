@@ -1,0 +1,5 @@
+export const scoringRules = [
+  { part: "AI interview & code questions", weight: 85, detail: "One AI-generated question per competency at your chosen level. Each answer is graded against a published rubric (points covered vs missed)." },
+  { part: "Level ceiling", weight: 0, detail: "Raw scores are scaled by level: Intern max 70, Junior 88, Mid 96, Senior 100 — harder levels can prove more." },
+  { part: "Practical evidence", weight: 15, detail: "A working link to relevant work adds up to 10 points per competency; a description adds 4. Capped at the level ceiling." },
+];

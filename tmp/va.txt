@@ -1,0 +1,13 @@
+  {
+    id: "virtual-assistant",
+    title: "Virtual Assistant",
+    family: "Operations",
+    competencies: [
+      { id: "va-calendar", label: "Calendar & inbox management", description: "Triages email and schedules across time zones" },
+      { id: "va-tools", label: "Productivity tools", description: "Google Workspace, Notion, spreadsheets and automations" },
+      { id: "va-comm", label: "Professional communication", description: "Writes clear, polite, on-brand messages" },
+      { id: "va-judgement", label: "Prioritisation & discretion", description: "Handles urgency, confidentiality and escalation" },
+    ],
+    thresholds: { internship: 55, job: 68 },
+    coreMins: { internship: [], job: [{ competencyId: "va-comm", min: 65 }] },
+  },

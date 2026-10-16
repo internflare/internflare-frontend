@@ -1,0 +1,50 @@
+function AssessmentResult({ roleId, fromOpp }: { roleId: string; fromOpp: string | null }) {
+  const { candidate } = usePathway();
+  const r = roleReadiness(candidate, roleId)!;
+  const internships = recommendedFor(candidate, "internship").filter((x) => x.e.role?.id === roleId);
+  const jobs = recommendedFor(candidate, "job").filter((x) => x.e.role?.id === roleId);
+  const from = fromOpp ? getOpportunity(fromOpp) : undefined;
+  const fromE = fromOpp ? eligibilityFor(candidate, fromOpp) : undefined;
+
+  const outcome =
+    r.status === "job"
+      ? { Icon: BriefcaseIcon, tone: "bg-success-soft text-success", title: "Your current skills match job-level roles", body: `Readiness ${r.overall} meets the ${r.role.title} job threshold (${r.job.threshold}). You can apply to suitable jobs now — no internship required.`, cta: { label: `View ${jobs.length} matching jobs`, to: `/app/jobs?role=${roleId}&eligible=1` }, alt: { label: "Explore learning anyway", to: `/app/learn?role=${roleId}` } }
+      : r.status === "internship"
+        ? { Icon: GraduationCapIcon, tone: "bg-success-soft text-success", title: "You may qualify for internships", body: `Readiness ${r.overall} meets the internship threshold (${r.internship.threshold}) but not yet the job threshold (${r.job.threshold}). We've prepared a job-readiness plan.`, cta: { label: `View ${internships.length} suitable internships`, to: `/app/internships?role=${roleId}&eligible=1` }, alt: { label: "Job-readiness plan", to: `/app/learning?role=${roleId}` } }
+        : { Icon: BookOpenIcon, tone: "bg-warning-soft text-warning", title: "A learning pathway is the right next step", body: `Readiness ${r.overall} is below the internship threshold (${r.internship.threshold}). This isn't permanent — complete the recommended learning, submit evidence and request reassessment.`, cta: { label: "Start recommended learning", to: `/app/learning?role=${roleId}` }, alt: { label: "Find a mentor (optional)", to: "/app/mentors" } };
+
+  return (
+    <div className="mx-auto max-w-4xl">
+      <div className="rounded-2xl border bg-card p-6 sm:p-8">
+        <span className={cn("flex h-12 w-12 items-center justify-center rounded-xl", outcome.tone)}><outcome.Icon className="h-6 w-6" /></span>
+        <p className="mt-4 text-sm text-muted-foreground">{r.role.title} · result {r.overall}/100 · {r.assessment?.assessedOn}</p>
+        <h1 className="mt-1 text-2xl font-bold tracking-tight">{outcome.title}</h1>
+        <p className="mt-2 max-w-2xl text-muted-foreground">{outcome.body}</p>
+        <GoalVsEvidence goal={candidate.statedGoal} readiness={r} className="mt-5 bg-background" />
+        <div className="mt-5 flex flex-wrap gap-2">
+          {from && fromE && (
+            <Button asChild variant={fromE.state === "eligible" ? "default" : "outline"} className={fromE.state === "eligible" ? "" : "bg-card"}>
+              <Link to={`/app/${fromE.requirement?.level === "internship" ? "internships" : "jobs"}?selected=${from.id}`}>{fromE.state === "eligible" ? `Continue to apply: ${from.title}` : `Back to ${from.title}`}</Link>
+            </Button>
+          )}
+          <Button asChild><Link to={outcome.cta.to}>{outcome.cta.label}</Link></Button>
+          <Button asChild variant="outline" className="bg-card"><Link to={outcome.alt.to}>{outcome.alt.label}</Link></Button>
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        {(["internship", "job"] as const).map((lvl) => (
+          <div key={lvl} className="rounded-xl border bg-card p-5">
+            <p className="font-semibold capitalize">{lvl} eligibility · {r[lvl].ok ? "met" : "not met yet"}</p>
+            <GapExplanation met={r[lvl].met} unmet={r[lvl].unmet} className="mt-3" />
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-6">{r.assessment && <CompetencyTable role={r.role} assessment={r.assessment} />}</div>
+
+      <h2 className="mt-8 text-lg font-semibold">Recommended next actions</h2>
+      <NextActionsList actions={nextActions({ ...candidate, targetRoleId: roleId })} className="mt-3" />
+    </div>
+  );
+}

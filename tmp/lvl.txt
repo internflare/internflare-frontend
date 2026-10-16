@@ -1,0 +1,33 @@
+
+/* ---------------- Expertise levels (AI assessment difficulty) ---------------- */
+
+export type ExpertiseLevel = "intern" | "junior" | "mid" | "senior";
+
+export const expertiseLevels: { id: ExpertiseLevel; label: string; years: string; focus: string; ceiling: number }[] = [
+  { id: "intern", label: "Intern", years: "0 years · student or career-switcher", focus: "Fundamentals, reading code, following conventions", ceiling: 70 },
+  { id: "junior", label: "Junior", years: "0–2 years", focus: "Shipping production features with review, debugging, testing basics", ceiling: 88 },
+  { id: "mid", label: "Mid-level", years: "2–5 years", focus: "Owning features end-to-end, performance, trade-offs, mentoring", ceiling: 96 },
+  { id: "senior", label: "Senior", years: "5+ years", focus: "System design, reliability, cross-team decisions", ceiling: 100 },
+];
+
+export const getLevel = (id: ExpertiseLevel) => expertiseLevels.find((l) => l.id === id)!;
+
+export interface AiQuestionResult {
+  questionId: string;
+  competencyId: string;
+  kind: string;
+  title: string;
+  raw: number;
+  covered: string[];
+  missed: string[];
+  summary: string;
+}
+
+export interface AiAssessmentReport {
+  level: ExpertiseLevel;
+  rawAverage: number;
+  demonstratedLevel: ExpertiseLevel | "below-intern";
+  summary: string;
+  results: AiQuestionResult[];
+  durationMins: number;
+}

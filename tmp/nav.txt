@@ -1,0 +1,45 @@
+const talentNav: { group: string; items: { label: string; to: string; Icon: React.ElementType; count?: number; end?: boolean }[] }[] = [
+  {
+    group: "Overview",
+    items: [
+      { label: "Dashboard", to: "/app", Icon: LayoutDashboardIcon, end: true },
+      { label: "Notifications", to: "/app/notifications", Icon: BellIcon, count: 3 },
+    ],
+  },
+  {
+    group: "Pathway",
+    items: [
+      { label: "Learn", to: "/app/learn", Icon: CompassIcon },
+      { label: "My learning path", to: "/app/learning", Icon: BookOpenIcon },
+      { label: "Internships", to: "/app/internships", Icon: GraduationCapIcon },
+      { label: "internflareJobs", to: "/app/jobs", Icon: BriefcaseIcon },
+      { label: "Assessments & readiness", to: "/app/assessments", Icon: GaugeIcon },
+      { label: "Mentorship", to: "/app/mentors", Icon: UsersIcon },
+    ],
+  },
+  {
+    group: "Applications",
+    items: [
+      { label: "My applications", to: "/app/applications", Icon: FileCheck2Icon },
+      { label: "Interviews", to: "/app/interviews", Icon: CalendarClockIcon },
+      { label: "Offers", to: "/app/offers", Icon: GiftIcon },
+      { label: "Saved", to: "/app/saved", Icon: BookmarkIcon },
+      { label: "Career tools", to: "/app/tools", Icon: SparklesIcon },
+    ],
+  },
+  {
+    group: "Build",
+    items: [
+      { label: "Portfolio", to: "/app/portfolio", Icon: LayersIcon },
+      { label: "Client acquisition", to: "/app/leads", Icon: TargetIcon },
+      { label: "Workspace & projects", to: "/app/workspace", Icon: FolderKanbanIcon },
+    ],
+  },
+  {
+    group: "Account",
+    items: [
+      { label: "Profile & CV", to: "/app/profile", Icon: UserIcon },
+      { label: "Account settings", to: "/app/settings", Icon: SettingsIcon },
+    ],
+  },
+];

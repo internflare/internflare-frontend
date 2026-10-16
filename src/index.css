@@ -1,0 +1,136 @@
+/* Import fonts */
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300..800&display=swap");
+
+/* Tailwind v3 directives */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* Border Radius */
+  --radius: 0.75rem;
+
+  /* Box Shadow */
+  --shadow-2xs: 0 1px rgb(29 29 29 / 0.04);
+  --shadow-xs: 0 1px 2px 0 rgb(29 29 29 / 0.04);
+  --shadow-sm: 0 1px 3px 0 rgb(29 29 29 / 0.06), 0 1px 2px -1px rgb(29 29 29 / 0.05);
+  --shadow-md: 0 4px 12px -2px rgb(29 29 29 / 0.07), 0 2px 4px -2px rgb(29 29 29 / 0.05);
+  --shadow-lg: 0 12px 24px -6px rgb(29 29 29 / 0.09), 0 4px 8px -4px rgb(29 29 29 / 0.05);
+  --shadow-xl: 0 20px 40px -10px rgb(29 29 29 / 0.12), 0 8px 12px -6px rgb(29 29 29 / 0.06);
+  --shadow-2xl: 0 25px 50px -12px rgb(29 29 29 / 0.2);
+
+  /* Fonts */
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+
+  /* Shadcn colors — brand: #fd7128 orange, #591e00 brown, #997fff purple, #1d1d1d charcoal */
+  --background: 30 25% 98.5%;
+  --foreground: 0 0% 11.4%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 11.4%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 11.4%;
+  --primary: 20.6 98% 57.5%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 30 14% 95%;
+  --secondary-foreground: 0 0% 11.4%;
+  --muted: 30 14% 95%;
+  --muted-foreground: 20 5% 40%;
+  --accent: 24 100% 96.5%;
+  --accent-foreground: 20 100% 17.5%;
+  --destructive: 0 72% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 30 10% 89.5%;
+  --input: 30 10% 86%;
+  --ring: 20.6 98% 57.5%;
+  --chart-1: 20.6 98% 57.5%;
+  --chart-2: 252 100% 75%;
+  --chart-3: 20 100% 17.5%;
+  --chart-4: 30 18% 72%;
+  --chart-5: 252 45% 55%;
+  --sidebar: 0 0% 100%;
+  --sidebar-foreground: 0 0% 11.4%;
+  --sidebar-primary: 20.6 98% 57.5%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 24 100% 96.5%;
+  --sidebar-accent-foreground: 20 100% 17.5%;
+  --sidebar-border: 30 10% 90%;
+  --sidebar-ring: 20.6 98% 57.5%;
+
+  /* Brand extensions */
+  --brand-brown: 20 100% 17.5%;
+  --ai: 252 100% 75%;
+  --ai-strong: 252 60% 52%;
+  --ai-soft: 252 100% 97%;
+  --success: 152 60% 34%;
+  --success-soft: 145 55% 95%;
+  --warning: 35 92% 40%;
+  --warning-soft: 42 100% 94%;
+}
+
+.dark {
+  color-scheme: dark;
+  --background: 20 8% 6.5%;
+  --foreground: 30 15% 95%;
+  --card: 20 6% 9.5%;
+  --card-foreground: 30 15% 95%;
+  --popover: 20 6% 9.5%;
+  --popover-foreground: 30 15% 95%;
+  --primary: 20.6 98% 58%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 20 5% 14%;
+  --secondary-foreground: 30 15% 95%;
+  --muted: 20 5% 14%;
+  --muted-foreground: 25 6% 64%;
+  --accent: 20 45% 13%;
+  --accent-foreground: 22 100% 78%;
+  --destructive: 0 62.8% 45%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 20 5% 17%;
+  --input: 20 5% 20%;
+  --ring: 20.6 98% 58%;
+  --chart-1: 20.6 98% 58%;
+  --chart-2: 252 100% 78%;
+  --chart-3: 22 70% 70%;
+  --chart-4: 30 10% 45%;
+  --chart-5: 252 50% 62%;
+  --sidebar: 20 6% 8.5%;
+  --sidebar-foreground: 30 15% 95%;
+  --sidebar-primary: 20.6 98% 58%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 20 45% 13%;
+  --sidebar-accent-foreground: 22 100% 78%;
+  --sidebar-border: 20 5% 16%;
+  --sidebar-ring: 20.6 98% 58%;
+
+  --brand-brown: 22 70% 72%;
+  --ai: 252 100% 78%;
+  --ai-strong: 252 100% 80%;
+  --ai-soft: 252 35% 16%;
+  --success: 150 55% 55%;
+  --success-soft: 150 30% 13%;
+  --warning: 40 90% 60%;
+  --warning-soft: 40 40% 13%;
+}
+
+body {
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--background));
+}
+
+h1, h2, h3, h4 {
+  letter-spacing: -0.02em;
+}

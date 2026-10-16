@@ -1,0 +1,11 @@
+        {/* Apply area — gated by role-specific eligibility */}
+        <div className="mt-5">
+          <EligibilityGate opportunity={o} companyName={company.name} fullDetailsTo={showFullLink ? `/opportunities/${o.id}` : undefined} />
+        </div>
+
+        {match && !closed && (
+          <div className="mt-6">
+            <MatchBreakdown {...match} />
+          </div>
+        )}
+
