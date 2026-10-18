@@ -7,13 +7,11 @@ import {
   SearchIcon,
   SettingsIcon,
   UserIcon,
-  GlobeIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/polymet/components/theme-toggle";
-import { usePathway } from "@/polymet/components/pathway/pathway-provider";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,8 +25,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { currentTalent, notifications } from "@/polymet/data/talent-data";
-import { cn } from "@/lib/utils";
 import authClient from "@/lib/auth-client";
 
 interface AppTopbarProps {
@@ -37,12 +33,17 @@ interface AppTopbarProps {
 }
 
 export function AppTopbar({ onToggleSidebar, onOpenMobile }: AppTopbarProps) {
-  const { candidate } = usePathway();
   const navigate = useNavigate();
   const { data: session } = authClient.useSession();
-  const unread = notifications.filter((n) => !n.read);
-  const accountName = session?.user.name || candidate.name;
-  const accountEmail = session?.user.email || currentTalent.email;
+  const accountName =
+    session?.user.name?.trim() || session?.user.email || "Your account";
+  const accountEmail = session?.user.email ?? "";
+  const initials =
+    accountName
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((part) => part[0])
+      .join("") || "U";
 
   const signOut = async () => {
     const result = await authClient.signOut();
@@ -78,62 +79,24 @@ export function AppTopbar({ onToggleSidebar, onOpenMobile }: AppTopbarProps) {
         />
       </div>
       <div className="ml-auto flex items-center gap-1.5">
-        <span className="mr-1 hidden rounded-md border border-primary/25 bg-accent px-2 py-0.5 text-xs font-semibold text-brown sm:inline">
-          {currentTalent.plan} plan
-        </span>
         <ThemeToggle />
         <Popover>
           <PopoverTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              className="relative"
-              aria-label={`Notifications, ${unread.length} unread`}
+              aria-label="Notifications"
             >
               <BellIcon />
-              {unread.length > 0 && (
-                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-primary ring-2 ring-background" />
-              )}
             </Button>
           </PopoverTrigger>
           <PopoverContent align="end" className="w-80 p-0">
-            <div className="flex items-center justify-between border-b px-4 py-3">
+            <div className="border-b px-4 py-3">
               <p className="text-sm font-semibold">Notifications</p>
-              <span className="text-xs text-muted-foreground">
-                {unread.length} unread
-              </span>
             </div>
-            <ul className="max-h-80 overflow-y-auto">
-              {notifications.slice(0, 4).map((n) => (
-                <li key={n.id}>
-                  <Link
-                    to={n.href}
-                    className="flex gap-3 px-4 py-3 hover:bg-muted"
-                  >
-                    <span
-                      className={cn(
-                        "mt-1.5 h-2 w-2 shrink-0 rounded-full",
-                        n.read ? "bg-transparent" : "bg-primary",
-                      )}
-                    />
-                    <span>
-                      <span className="block text-sm font-medium">
-                        {n.title}
-                      </span>
-                      <span className="line-clamp-2 text-xs text-muted-foreground">
-                        {n.body}
-                      </span>
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-            <Link
-              to="/app/notifications"
-              className="block border-t px-4 py-2.5 text-center text-sm font-medium text-primary hover:bg-muted"
-            >
-              View all notifications
-            </Link>
+            <p className="px-4 py-5 text-sm text-muted-foreground">
+              Notifications will appear here when they are available.
+            </p>
           </PopoverContent>
         </Popover>
         <DropdownMenu>
@@ -144,39 +107,27 @@ export function AppTopbar({ onToggleSidebar, onOpenMobile }: AppTopbarProps) {
               aria-label="Account menu"
             >
               <Avatar className="h-7 w-7">
-                <AvatarImage src={candidate.avatar} alt="" />
-                <AvatarFallback>
-                  {accountName
-                    .split(" ")
-                    .map((p) => p[0])
-                    .join("")}
-                </AvatarFallback>
+                <AvatarImage src={session?.user.image ?? undefined} alt="" />
+                <AvatarFallback>{initials}</AvatarFallback>
               </Avatar>
               <span className="hidden text-sm font-medium sm:inline">
-                {session
-                  ? accountName
-                  : candidate.id === "new"
-                    ? "Account"
-                    : candidate.firstName}
+                {accountName}
               </span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>
               <p className="text-sm">{accountName}</p>
-              <p className="text-xs font-normal text-muted-foreground">
-                {accountEmail}
-              </p>
+              {accountEmail && (
+                <p className="text-xs font-normal text-muted-foreground">
+                  {accountEmail}
+                </p>
+              )}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <Link to="/app/profile">
                 <UserIcon /> Profile
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link to={`/talent/${currentTalent.id}`}>
-                <GlobeIcon /> View public portfolio
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>

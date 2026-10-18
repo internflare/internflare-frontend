@@ -55,6 +55,7 @@ function Field({
   );
 }
 
+// Password visibility toggle is a local state for each input, so toggling one doesn't affect others.
 function PasswordInput({
   id,
   value,
@@ -95,6 +96,7 @@ function PasswordInput({
   );
 }
 
+// Page headings are consistent across the auth flow, with a title and optional subtext.
 function Heading({ title, sub }: { title: string; sub: React.ReactNode }) {
   return (
     <div className="mb-7">
@@ -139,7 +141,8 @@ function signInReducer(state: SignInState, action: SignInAction): SignInState {
   }
 }
 
-export function SignInPage() {
+//sign-in component
+function SignInPage() {
   const [state, dispatch] = useReducer(signInReducer, {
     email: "",
     password: "",
@@ -152,14 +155,17 @@ export function SignInPage() {
   const navigate = useNavigate();
 
   const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
+    e.preventDefault(); // Prevent the default form submission behavior.
     const next: Record<string, string> = {};
     if (!emailOk(email)) next.email = "Enter a valid email address";
     if (!password) next.password = "Enter your password";
     dispatch({ type: "validation-errors-set", errors: next });
     if (Object.keys(next).length) return;
 
+    // Start the sign-in request and disable the form to prevent multiple submissions.
     dispatch({ type: "request-started" });
+
+    // Attempt to sign in using the auth client.
     try {
       const result = await authClient.signIn.email({
         email,
@@ -173,6 +179,7 @@ export function SignInPage() {
         });
         return;
       }
+      // The dashboard reads the signed-in identity from Better Auth's session.
       navigate("/app");
     } catch {
       dispatch({
@@ -318,7 +325,7 @@ function signUpReducer(state: SignUpState, action: SignUpAction): SignUpState {
   }
 }
 
-export function SignUpPage() {
+function SignUpPage() {
   const { search } = useLocation();
   const [state, dispatch] = useReducer(signUpReducer, {
     // Signup links can preselect the employer flow with ?type=employer.
@@ -364,6 +371,7 @@ export function SignUpPage() {
         password: form.password,
         callbackURL: `${window.location.origin}${type === "employer" ? "/employer/onboarding" : "/onboarding"}`,
       });
+      console.log("Sign-up result:", result);
       if (result.error) {
         dispatch({
           type: "request-failed",
@@ -372,6 +380,7 @@ export function SignUpPage() {
         return;
       }
       if (type === "talent") switchCandidate("new");
+      //navigate to the next step in the onboarding flow based on account type
       navigate(type === "employer" ? "/employer/onboarding" : "/onboarding");
     } catch {
       dispatch({
@@ -662,7 +671,7 @@ function resetPasswordReducer(
 }
 
 // The reset form validates locally until a reset-token API flow is connected.
-export function ResetPasswordPage() {
+function ResetPasswordPage() {
   const [state, dispatch] = useReducer(resetPasswordReducer, {
     password: "",
     confirmPassword: "",
@@ -781,4 +790,4 @@ function VerifyEmailPage({
   );
 }
 
-export { VerifyEmailPage };
+export { SignInPage, SignUpPage, ResetPasswordPage, VerifyEmailPage };

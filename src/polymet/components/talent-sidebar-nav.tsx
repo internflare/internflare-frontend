@@ -1,4 +1,4 @@
-import { Link, NavLink } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import {
   BellIcon,
   BookmarkIcon,
@@ -22,13 +22,14 @@ import {
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CandidateSwitcher } from "@/polymet/components/pathway/candidate-switcher";
+import authClient from "@/lib/auth-client";
 
-const talentNav: { group: string; items: { label: string; to: string; Icon: React.ElementType; count?: number; end?: boolean }[] }[] = [
+const talentNav: { group: string; items: { label: string; to: string; Icon: React.ElementType; end?: boolean }[] }[] = [
   {
     group: "Overview",
     items: [
       { label: "Dashboard", to: "/app", Icon: LayoutDashboardIcon, end: true },
-      { label: "Notifications", to: "/app/notifications", Icon: BellIcon, count: 3 },
+      { label: "Notifications", to: "/app/notifications", Icon: BellIcon },
     ],
   },
   {
@@ -74,6 +75,8 @@ interface TalentSidebarNavProps {
 }
 
 export function TalentSidebarNav({ collapsed }: TalentSidebarNavProps) {
+  const { data: session } = authClient.useSession();
+
   return (
     <div className="flex h-full flex-col">
       <nav aria-label="Talent" className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
@@ -81,7 +84,7 @@ export function TalentSidebarNav({ collapsed }: TalentSidebarNavProps) {
           <div key={g.group}>
             {!collapsed && <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{g.group}</p>}
             <ul className="space-y-0.5">
-              {g.items.map(({ label, to, Icon, count, end }) => {
+              {g.items.map(({ label, to, Icon, end }) => {
                 const link = (
                   <NavLink
                     to={to}
@@ -99,9 +102,6 @@ export function TalentSidebarNav({ collapsed }: TalentSidebarNavProps) {
                         {isActive && <span className="absolute inset-y-2 left-0 w-[3px] rounded-r bg-primary" aria-hidden="true" />}
                         <Icon className={cn("h-[18px] w-[18px] shrink-0", isActive && "text-primary")} />
                         {!collapsed && <span className="flex-1 truncate">{label}</span>}
-                        {!collapsed && count ? (
-                          <span className="rounded-md bg-muted px-1.5 text-xs tabular-nums text-muted-foreground">{count}</span>
-                        ) : null}
                       </>
                     )}
                   </NavLink>
@@ -123,7 +123,8 @@ export function TalentSidebarNav({ collapsed }: TalentSidebarNavProps) {
           </div>
         ))}
       </nav>
-      {!collapsed && <CandidateSwitcher />}
+      {/* Keep the sample candidate switcher available only in the unauthenticated demo. */}
+      {!collapsed && !session && <CandidateSwitcher />}
     </div>
   );
 }
