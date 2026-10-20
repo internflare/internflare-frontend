@@ -32,13 +32,13 @@ Create a local environment file from the example:
 Copy-Item .env.example .env
 ```
 
-Set `VITE_BETTER_AUTH_URL` in `.env` to the URL of the authentication API. For local development, the default is:
+Set `VITE_API_URL` in `.env` to the URL of the backend gateway. All frontend API calls, including Better Auth and employer onboarding, go through this gateway. For local development, use:
 
 ```dotenv
-VITE_BETTER_AUTH_URL=http://localhost:3001
+VITE_API_URL=http://localhost:3000
 ```
 
-The authentication API must be available at that URL for sign-in, sign-up, social authentication, session, and sign-out features to work. The frontend does not contain provider secrets; OAuth credentials should never be placed in `VITE_` variables.
+The gateway routes requests to the owning backend services. The frontend does not contain provider secrets; OAuth credentials should never be placed in `VITE_` variables.
 
 ## Development
 

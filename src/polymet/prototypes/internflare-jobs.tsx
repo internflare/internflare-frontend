@@ -457,6 +457,7 @@ export default function InternflareJobsPrototype() {
               }
             />
 
+            {/* Employer Routes */}
             <Route
               path="/employer/onboarding"
               element={
