@@ -8,10 +8,14 @@ const apiPaths = {
     health: `${apiVersion}/health`,
   },
   company: {
-    employerOnboarding: `${apiVersion}/auth/employer-onboarding`,
+    employerOnboarding: `${apiVersion}/company/employer-onboarding`,
+    myAdminCompanies: `${apiVersion}/company/mine`,
+  },
+  job: {
+    listings: `${apiVersion}/job/listing`,
   },
   user: {
-    employerDashboard: `${apiVersion}/user/employer/dashboard`,
+    employerDashboard: `${apiVersion}/employer/dashboard`,
     talentDashboard: `${apiVersion}/user/talent/dashboard`,
   },
 } as const;
@@ -22,6 +26,8 @@ const API_URLS = {
   currentSession: `${apiBaseUrl}${apiPaths.auth.currentSession}`,
   authHealth: `${apiBaseUrl}${apiPaths.auth.health}`,
   employerOnboarding: `${apiBaseUrl}${apiPaths.company.employerOnboarding}`,
+  myAdminCompanies: `${apiBaseUrl}${apiPaths.company.myAdminCompanies}`,
+  jobListings: `${apiBaseUrl}${apiPaths.job.listings}`,
   employerDashboard: `${apiBaseUrl}${apiPaths.user.employerDashboard}`,
   talentDashboard: `${apiBaseUrl}${apiPaths.user.talentDashboard}`,
 } as const;

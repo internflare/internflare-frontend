@@ -1,9 +1,41 @@
 import { API_URLS, apiRequest, CurrentSession } from "@/service/api";
 
+export interface EmployerDashboardMetrics {
+  total_opportunities: number;
+  published_opportunities: number;
+  draft_opportunities: number;
+  total_views: number;
+  last_3_opportunities: Array<{
+    id: string;
+    title: string;
+    status: string;
+    views: number;
+    created_at: string;
+  }>;
+}
+
+interface EmployerDashboardResponse {
+  metrics: EmployerDashboardMetrics;
+}
+
+interface AdminCompaniesResponse {
+  companies: Array<{ id: string; name: string; country: string | null }>;
+}
+
 const profileService = {
   // The browser sends the Better Auth session cookie through apiRequest's credentials: "include".
-  getEmployerDashboardData: () =>
-    apiRequest<CurrentSession>(API_URLS.employerDashboard),
+  getEmployerDashboardData: async (): Promise<EmployerDashboardMetrics> => {
+    const response = await apiRequest<EmployerDashboardResponse>(
+      API_URLS.employerDashboard,
+    );
+    if (!response) {
+      throw new Error("Employer dashboard metrics response was empty");
+    }
+    return response.metrics;
+  },
+
+  getMyAdminCompanies: () =>
+    apiRequest<AdminCompaniesResponse>(API_URLS.myAdminCompanies),
 
   getTalentDashboardData: () =>
     apiRequest<CurrentSession>(API_URLS.talentDashboard),

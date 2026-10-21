@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ActivityIcon,
@@ -12,6 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   MatchBadge,
@@ -28,16 +30,43 @@ import {
   recentActivity,
 } from "@/polymet/data/employer-data";
 import { pipelineStages } from "@/polymet/data/talent-data";
-import profileService from "@/service/profile.service";
+import profileService, {
+  type EmployerDashboardMetrics,
+} from "@/service/user.service";
 
 export function EmployerDashboardPage() {
-  // Compute derived data for dashboard metrics
-  const getMetrics = profileService.getEmployerDashboardData();
+  const [dashboardMetrics, setDashboardMetrics] =
+    useState<EmployerDashboardMetrics | null>(null);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
 
-  console.log("Employer Dashboard Metrics:", getMetrics);
+  useEffect(() => {
+    let isMounted = true;
+
+    profileService
+      .getEmployerDashboardData()
+      .then((metrics) => {
+        if (isMounted) setDashboardMetrics(metrics);
+      })
+      .catch((error: unknown) => {
+        if (isMounted) {
+          setDashboardError(
+            error instanceof Error
+              ? error.message
+              : "Unable to load employer dashboard metrics",
+          );
+        }
+      })
+      .finally(() => {
+        if (isMounted) setDashboardLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const published = employerListings.filter((l) => l.status === "published");
-  const drafts = employerListings.filter((l) => l.status === "draft");
   const totalApps = employerListings.reduce((n, l) => n + l.applicants, 0);
   const shortlisted = candidates.filter((c) =>
     ["Shortlisted", "Interview", "Test Task"].includes(c.stage),
@@ -47,6 +76,38 @@ export function EmployerDashboardPage() {
     n: candidates.filter((c) => c.stage === s).length,
   }));
   const maxStage = Math.max(1, ...stageCounts.map((x) => x.n));
+
+  // Show a skeleton of the page layout until the metrics request settles.
+  if (dashboardLoading) {
+    return (
+      <div
+        className="space-y-6"
+        role="status"
+        aria-busy="true"
+        aria-label="Loading dashboard"
+      >
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-4 w-80 max-w-full" />
+        </div>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {Array.from({ length: 4 }, (_, index) => (
+            <Skeleton key={index} className="h-24 rounded-xl" />
+          ))}
+        </div>
+        <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
+          <div className="space-y-6">
+            <Skeleton className="h-64 rounded-xl" />
+            <Skeleton className="h-64 rounded-xl" />
+          </div>
+          <div className="space-y-6">
+            <Skeleton className="h-48 rounded-xl" />
+            <Skeleton className="h-48 rounded-xl" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -80,8 +141,8 @@ export function EmployerDashboardPage() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile
           label="Published listings"
-          value={published.length}
-          sub={`${drafts.length} draft · 1 paused`}
+          value={dashboardMetrics?.published_opportunities ?? "—"}
+          sub={`${dashboardMetrics?.draft_opportunities ?? "—"} drafts`}
         />
         <StatTile
           label="Total applications"
@@ -99,6 +160,12 @@ export function EmployerDashboardPage() {
           sub="Next: Thu 22 May"
         />
       </div>
+
+      {dashboardError && (
+        <p role="alert" className="text-sm text-destructive">
+          Dashboard metrics unavailable: {dashboardError}
+        </p>
+      )}
 
       <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
         <div className="space-y-6">

@@ -1,6 +1,5 @@
-import { usePathway } from "@/polymet/components/pathway/pathway-provider";
 import { useReducer, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { SocialAuthButtons } from "@/polymet/components/auth/social-auth-buttons";
 
 import {
@@ -286,6 +285,7 @@ type SignUpState = {
   errors: Record<string, string>;
   isSubmitting: boolean;
   requestError: string;
+  verificationEmailSent: boolean;
 };
 
 type SignUpAction =
@@ -298,6 +298,7 @@ type SignUpAction =
   | { type: "validation-errors-set"; errors: Record<string, string> }
   | { type: "request-started" }
   | { type: "request-failed"; message: string }
+  | { type: "verification-email-sent" }
   | { type: "request-finished" };
 
 function signUpReducer(state: SignUpState, action: SignUpAction): SignUpState {
@@ -320,6 +321,8 @@ function signUpReducer(state: SignUpState, action: SignUpAction): SignUpState {
       return { ...state, requestError: "", isSubmitting: true };
     case "request-failed":
       return { ...state, requestError: action.message };
+    case "verification-email-sent":
+      return { ...state, verificationEmailSent: true };
     case "request-finished":
       return { ...state, isSubmitting: false };
   }
@@ -335,10 +338,17 @@ function SignUpPage() {
     errors: {},
     isSubmitting: false,
     requestError: "",
+    verificationEmailSent: false,
   });
-  const { type, form, consent, errors, isSubmitting, requestError } = state;
-  const { switchCandidate } = usePathway();
-  const navigate = useNavigate();
+  const {
+    type,
+    form,
+    consent,
+    errors,
+    isSubmitting,
+    requestError,
+    verificationEmailSent,
+  } = state;
   const set =
     (field: keyof SignUpForm) => (e: React.ChangeEvent<HTMLInputElement>) => {
       const actionByField = {
@@ -371,7 +381,6 @@ function SignUpPage() {
         password: form.password,
         callbackURL: `${window.location.origin}${type === "employer" ? "/employer/onboarding" : "/onboarding"}`,
       });
-      console.log("Sign-up result:", result);
       if (result.error) {
         dispatch({
           type: "request-failed",
@@ -379,9 +388,7 @@ function SignUpPage() {
         });
         return;
       }
-      if (type === "talent") switchCandidate("new");
-      //navigate to the next step in the onboarding flow based on account type
-      navigate(type === "employer" ? "/employer/onboarding" : "/onboarding");
+      dispatch({ type: "verification-email-sent" });
     } catch {
       dispatch({
         type: "request-failed",
@@ -392,6 +399,28 @@ function SignUpPage() {
       dispatch({ type: "request-finished" });
     }
   };
+
+  if (verificationEmailSent) {
+    return (
+      <div className="text-center">
+        <MailCheckIcon className="mx-auto h-12 w-12 text-primary" />
+        <Heading
+          title="Verify your email"
+          sub={
+            <>
+              We sent a verification link to{" "}
+              <span className="font-medium text-foreground">{form.email}</span>.
+              Click the button in that email to verify your address and continue
+              onboarding.
+            </>
+          }
+        />
+        <Button asChild variant="outline" className="w-full bg-card">
+          <Link to="/sign-in">Continue to sign in</Link>
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -578,11 +607,44 @@ function SignUpPage() {
   );
 }
 
-// This screen currently demonstrates the reset flow; it does not send an email yet.
+// Requests a reset email. The same confirmation is shown whether or not the account exists, so emails can't be probed.
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async () => {
+    if (!emailOk(email)) {
+      setError("Enter a valid email address");
+      return;
+    }
+    setError("");
+    setSubmitting(true);
+    try {
+      const result = await authClient.requestPasswordReset({
+        email: email.trim(),
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (result.error) {
+        // Rate limiting is the only failure worth surfacing; anything else keeps the neutral confirmation.
+        if (result.error.status === 429) {
+          setError("Too many attempts. Please wait a moment and try again.");
+          return;
+        }
+        if (result.error.status && result.error.status >= 500) {
+          setError("We couldn't send the reset link right now. Please try again shortly.");
+          return;
+        }
+      }
+      setSent(true);
+    } catch {
+      setError("Network error. Check your connection and try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   if (sent)
     return (
       <div className="text-center">
@@ -600,9 +662,6 @@ export function ForgotPasswordPage() {
         <Button asChild variant="outline" className="w-full bg-card">
           <Link to="/sign-in">Back to sign in</Link>
         </Button>
-        <Button asChild variant="link" className="mt-2 text-muted-foreground">
-          <Link to="/reset-password">Open demo reset link</Link>
-        </Button>
       </div>
     );
   return (
@@ -614,8 +673,7 @@ export function ForgotPasswordPage() {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (!emailOk(email)) setError("Enter a valid email address");
-          else setSent(true);
+          void submit();
         }}
         className="space-y-4"
         noValidate
@@ -630,8 +688,8 @@ export function ForgotPasswordPage() {
             className={cn("h-10", error && "border-destructive")}
           />
         </Field>
-        <Button type="submit" size="lg" className="w-full">
-          Send reset link
+        <Button type="submit" size="lg" className="w-full" disabled={submitting}>
+          {submitting ? "Sending…" : "Send reset link"}
         </Button>
         <Button asChild variant="ghost" className="w-full">
           <Link to="/sign-in">Back to sign in</Link>
@@ -646,12 +704,14 @@ type ResetPasswordState = {
   confirmPassword: string;
   error: string;
   done: boolean;
+  submitting: boolean;
 };
 
 type ResetPasswordAction =
   | { type: "password-changed"; password: string }
   | { type: "confirm-password-changed"; password: string }
   | { type: "validation-failed"; message: string }
+  | { type: "submit-started" }
   | { type: "password-updated" };
 
 function resetPasswordReducer(
@@ -664,21 +724,41 @@ function resetPasswordReducer(
     case "confirm-password-changed":
       return { ...state, confirmPassword: action.password };
     case "validation-failed":
-      return { ...state, error: action.message };
+      return { ...state, error: action.message, submitting: false };
+    case "submit-started":
+      return { ...state, error: "", submitting: true };
     case "password-updated":
-      return { ...state, done: true };
+      return { ...state, done: true, submitting: false };
   }
 }
 
-// The reset form validates locally until a reset-token API flow is connected.
+// Completes the reset using the token Better Auth appended to the link (?token=... or ?error=INVALID_TOKEN).
 function ResetPasswordPage() {
+  const [params] = useSearchParams();
+  const token = params.get("token");
+  const linkInvalid = !token || params.get("error") === "INVALID_TOKEN";
   const [state, dispatch] = useReducer(resetPasswordReducer, {
     password: "",
     confirmPassword: "",
     error: "",
     done: false,
+    submitting: false,
   });
-  const { password: pw, confirmPassword: confirm, error, done } = state;
+  const { password: pw, confirmPassword: confirm, error, done, submitting } = state;
+
+  if (linkInvalid)
+    return (
+      <div className="text-center">
+        <AlertCircleIcon className="mx-auto h-12 w-12 text-destructive" />
+        <Heading
+          title="Reset link is invalid or expired"
+          sub="Request a new link to reset your password."
+        />
+        <Button asChild className="w-full">
+          <Link to="/forgot-password">Request a new link</Link>
+        </Button>
+      </div>
+    );
   if (done)
     return (
       <div className="text-center">
@@ -692,6 +772,32 @@ function ResetPasswordPage() {
         </Button>
       </div>
     );
+
+  const submit = async () => {
+    if (pw.length < 8)
+      return dispatch({ type: "validation-failed", message: "Use at least 8 characters" });
+    if (pw !== confirm)
+      return dispatch({ type: "validation-failed", message: "Passwords don't match" });
+    dispatch({ type: "submit-started" });
+    try {
+      const result = await authClient.resetPassword({ newPassword: pw, token });
+      if (result.error)
+        return dispatch({
+          type: "validation-failed",
+          message:
+            result.error.status === 400
+              ? "This reset link is invalid or has expired. Request a new one."
+              : (result.error.message ?? "Could not update your password. Please try again."),
+        });
+      dispatch({ type: "password-updated" });
+    } catch {
+      dispatch({
+        type: "validation-failed",
+        message: "Network error. Check your connection and try again.",
+      });
+    }
+  };
+
   return (
     <>
       <Heading
@@ -701,17 +807,7 @@ function ResetPasswordPage() {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (pw.length < 8)
-            dispatch({
-              type: "validation-failed",
-              message: "Use at least 8 characters",
-            });
-          else if (pw !== confirm)
-            dispatch({
-              type: "validation-failed",
-              message: "Passwords don't match",
-            });
-          else dispatch({ type: "password-updated" });
+          void submit();
         }}
         className="space-y-4"
         noValidate
@@ -736,8 +832,8 @@ function ResetPasswordPage() {
             invalid={!!error}
           />
         </Field>
-        <Button type="submit" size="lg" className="w-full">
-          Update password
+        <Button type="submit" size="lg" className="w-full" disabled={submitting}>
+          {submitting ? "Updating…" : "Update password"}
         </Button>
       </form>
     </>

@@ -1,7 +1,6 @@
-import { useReducer } from "react";
+import { useEffect, useReducer } from "react";
 import { Link, useParams } from "react-router-dom";
 import { AlertCircleIcon, CheckCircle2Icon, ChevronLeftIcon, Loader2Icon, PlusIcon, SparklesIcon, XIcon } from "lucide-react";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +10,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AiLabel } from "@/polymet/components/status-badges";
-import { employerListings, planUsage } from "@/polymet/data/employer-data";
+import { planUsage } from "@/polymet/data/employer-data";
+import profileService from "@/service/user.service";
+import { ApiRequestError } from "@/service/api";
+import jobService, { type OpportunityDetail } from "@/service/job.service";
 
 type Form = {
   title: string; type: string; level: string; arrangement: string; country: string; location: string; duration: string; startDate: string; deadline: string; openings: string;
@@ -35,19 +37,34 @@ type ListingEditorState = {
   errors: string[];
   ai: { state: "idle" | "loading" | "ready"; text: string };
   aiApproved: boolean;
-  published: boolean;
-};
+  submissionStatus: "draft" | "published" | null;
+  companies: Array<{ id: string; name: string }>;
+  companyId: string;
+  submitting: boolean;
+  loadedTitle: string;
+  loadingExisting: boolean;
+  loadError: string;
+}
 
 type ListingEditorAction =
+  | { type: "existing-loaded"; form: Form; title: string }
+  | { type: "existing-failed"; error: string }
   | { type: "set-form"; form: Form }
   | { type: "set-skill"; skill: string }
   | { type: "set-errors"; errors: string[] }
   | { type: "set-ai"; ai: ListingEditorState["ai"] }
   | { type: "set-ai-approved"; approved: boolean }
-  | { type: "set-published"; published: boolean };
+  | { type: "set-submission-status"; status: ListingEditorState["submissionStatus"] }
+  | { type: "set-companies"; companies: ListingEditorState["companies"] }
+  | { type: "set-company-id"; companyId: string }
+  | { type: "set-submitting"; submitting: boolean };
 
 function listingEditorReducer(state: ListingEditorState, action: ListingEditorAction): ListingEditorState {
   switch (action.type) {
+    case "existing-loaded":
+      return { ...state, form: action.form, loadedTitle: action.title, loadingExisting: false, loadError: "" };
+    case "existing-failed":
+      return { ...state, loadingExisting: false, loadError: action.error };
     case "set-form":
       return { ...state, form: action.form };
     case "set-skill":
@@ -58,8 +75,14 @@ function listingEditorReducer(state: ListingEditorState, action: ListingEditorAc
       return { ...state, ai: action.ai };
     case "set-ai-approved":
       return { ...state, aiApproved: action.approved };
-    case "set-published":
-      return { ...state, published: action.published };
+    case "set-submission-status":
+      return { ...state, submissionStatus: action.status };
+    case "set-companies":
+      return { ...state, companies: action.companies };
+    case "set-company-id":
+      return { ...state, companyId: action.companyId };
+    case "set-submitting":
+      return { ...state, submitting: action.submitting };
   }
 }
 
@@ -90,22 +113,69 @@ function ListInput({ label, items, onChange, id }: { label: string; items: strin
   );
 }
 
+const countryNames: Record<string, string> = { NG: "Nigeria", GH: "Ghana", KE: "Kenya", ZA: "South Africa" };
+
+// Extract the bullet lines under a heading written by the create form ("Responsibilities:\n- a\n- b").
+function parseSection(text: string, heading: string): string[] {
+  const match = text.match(new RegExp(`${heading}:\\n((?:- .*(?:\\n|$))+)`));
+  return match ? match[1].split("\n").filter((line) => line.startsWith("- ")).map((line) => line.slice(2)) : [];
+}
+
+// Convert a stored opportunity back into the editor's form fields.
+function opportunityToForm(o: OpportunityDetail): Form {
+  const text = o.responsibilities ?? "";
+  const instructions = text.match(/Application instructions:\n([\s\S]*)$/)?.[1]?.trim() ?? "";
+  const responsibilities = parseSection(text, "Responsibilities");
+  const requirements = parseSection(text, "Requirements");
+  return {
+    ...blank,
+    title: o.title,
+    type: o.opportunity_type,
+    level: o.experience_level ?? blank.level,
+    arrangement: o.work_arrangement,
+    country: (o.country && countryNames[o.country]) || blank.country,
+    location: o.location ?? "",
+    duration: o.duration_weeks ? `${o.duration_weeks} weeks` : "",
+    startDate: o.start_date ? o.start_date.slice(0, 10) : "",
+    deadline: o.application_deadline ? o.application_deadline.slice(0, 10) : "",
+    openings: o.openings ? String(o.openings) : "",
+    description: o.description,
+    // Fall back to the raw text when it was not written by this form's template.
+    responsibilities: responsibilities.length ? responsibilities : [responsibilities.length || requirements.length ? "" : text],
+    requirements: requirements.length ? requirements : [""],
+    skills: o.skills_required ?? [],
+    paid: o.is_paid ? "paid" : "unpaid",
+    currency: o.currency ?? blank.currency,
+    min: o.compensation_min ? String(Number(o.compensation_min)) : "",
+    max: o.compensation_max ? String(Number(o.compensation_max)) : "",
+    frequency: o.payment_frequency ?? blank.frequency,
+    applyMethod: o.external_apply_url ? "external" : "internflare",
+    externalUrl: o.external_apply_url ?? "",
+    instructions,
+  };
+}
+
 export function ListingEditorPage() {
   const { id } = useParams();
-  const existing = id ? employerListings.find((l) => l.id === id) : undefined;
   const [state, dispatch] = useReducer(listingEditorReducer, {
-    form: existing ? { ...blank, title: existing.title, type: existing.type === "Internship" ? "internship" : "job", location: existing.location, description: "Join the Merchant Experience team and help build the dashboards businesses use to reconcile payments.", responsibilities: ["Build accessible React components"], requirements: ["Demonstrated React projects"], skills: ["React", "TypeScript"], paid: "paid", min: "250000", max: "350000", deadline: "2025-06-30", startDate: "2025-07-01", duration: "6 months" } : blank,
+    form: blank,
     skill: "",
     errors: [],
     ai: { state: "idle", text: "" },
     aiApproved: true,
-    published: false,
+    submissionStatus: null,
+    companies: [],
+    companyId: "",
+    submitting: false,
+    loadedTitle: "",
+    loadingExisting: Boolean(id),
+    loadError: "",
   });
-  const { form: f, skill, errors, ai, aiApproved, published } = state;
+  const { form: f, skill, errors, ai, aiApproved, submissionStatus, companies, companyId, submitting, loadedTitle, loadingExisting, loadError } = state;
   const set = <K extends keyof Form>(k: K, v: Form[K]) => dispatch({ type: "set-form", form: { ...f, [k]: v } });
   const isInternship = f.type === "internship";
   const showComp = !isInternship || f.paid === "paid";
-  const atLimit = !existing && planUsage[0].used >= planUsage[0].limit;
+  const atLimit = !id && planUsage[0].used >= planUsage[0].limit;
   const checklist: [string, boolean][] = [
     ["Basics", !!f.title],
     ["Description", f.description.length >= 40],
@@ -114,29 +184,199 @@ export function ListingEditorPage() {
     ["Deadline", !!f.deadline],
   ];
 
-  const validate = () => {
+  // In edit mode, prefill the form from the stored listing (backend enforces admin access for non-published ones).
+  useEffect(() => {
+    if (!id) return;
+    let active = true;
+    jobService
+      .getOpportunity(id)
+      .then((response) => {
+        if (!active) return;
+        if (!response) throw new Error("The listing service returned an empty response.");
+        dispatch({ type: "existing-loaded", form: opportunityToForm(response.opportunity), title: response.opportunity.title });
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        const status = error instanceof ApiRequestError ? error.status : 0;
+        dispatch({
+          type: "existing-failed",
+          error:
+            status === 404 ? "This listing no longer exists."
+            : status === 401 || status === 403 ? "You don't have permission to edit this listing."
+            : "Could not load this listing. Please try again.",
+        });
+      });
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    let active = true;
+    profileService
+      .getMyAdminCompanies()
+      .then((result) => {
+        if (!active) return;
+        const adminCompanies = result?.companies ?? [];
+        dispatch({ type: "set-companies", companies: adminCompanies });
+        if (adminCompanies.length === 1) {
+          dispatch({ type: "set-company-id", companyId: adminCompanies[0].id });
+        } else if (adminCompanies.length === 0) {
+          dispatch({
+            type: "set-errors",
+            errors: ["Complete employer onboarding before creating a listing"],
+          });
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          dispatch({
+            type: "set-errors",
+            errors: [
+              error instanceof Error
+                ? error.message
+                : "Unable to load your employer company",
+            ],
+          });
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const validate = (status: "draft" | "published") => {
     const e: string[] = [];
+    if (!id && !companyId) e.push("Your active company could not be found");
     if (!f.title.trim()) e.push("Title is required");
-    if (f.description.trim().length < 40) e.push("Description must be at least 40 characters");
-    if (!f.responsibilities.some((x) => x.trim())) e.push("Add at least one responsibility");
-    if (!f.requirements.some((x) => x.trim())) e.push("Add at least one requirement");
-    if (f.skills.length === 0) e.push("Add at least one skill");
-    if (!f.location.trim() && f.arrangement !== "remote") e.push("Location is required for hybrid/onsite roles");
-    if (!f.deadline) e.push("Application deadline is required");
-    if (isInternship && !f.paid) e.push("State whether the internship is paid or unpaid");
-    if (showComp && (!f.min || !f.max)) e.push("Enter a compensation range");
-    if (showComp && Number(f.min) > Number(f.max)) e.push("Minimum compensation can't exceed maximum");
-    if (f.applyMethod === "external" && !/^https:\/\//.test(f.externalUrl)) e.push("External application URL must start with https://");
-    if (!aiApproved) e.push("Review and approve the AI-generated description before publishing");
-    if (atLimit) e.push(`Listing limit reached (${planUsage[0].limit}). Pause a listing or upgrade your plan`);
+    if (!f.description.trim()) e.push("Description is required");
+    if (f.openings && (!Number.isInteger(Number(f.openings)) || Number(f.openings) < 1)) {
+      e.push("Openings must be a positive whole number");
+    }
+    for (const amount of [f.min, f.max]) {
+      if (
+        amount &&
+        (!Number.isFinite(Number(amount)) ||
+          Number(amount) < 0 ||
+          Number(amount) > 9_999_999_999.99)
+      ) {
+        e.push("Compensation amounts must be valid non-negative numbers");
+        break;
+      }
+    }
+    if (
+      f.min &&
+      f.max &&
+      Number.isFinite(Number(f.min)) &&
+      Number.isFinite(Number(f.max)) &&
+      Number(f.min) > Number(f.max)
+    ) {
+      e.push("Minimum compensation can't exceed maximum");
+    }
+    if (status === "published") {
+      if (f.description.trim().length < 40) e.push("Description must be at least 40 characters");
+      if (!f.responsibilities.some((x) => x.trim())) e.push("Add at least one responsibility");
+      if (!f.requirements.some((x) => x.trim())) e.push("Add at least one requirement");
+      if (f.skills.length === 0) e.push("Add at least one skill");
+      if (!f.location.trim() && f.arrangement !== "remote") e.push("Location is required for hybrid/onsite roles");
+      if (!f.deadline) e.push("Application deadline is required");
+      if (isInternship && !f.paid) e.push("State whether the internship is paid or unpaid");
+      if (showComp && (!f.min || !f.max)) e.push("Enter a compensation range");
+      if (showComp && (!Number.isFinite(Number(f.min)) || !Number.isFinite(Number(f.max)))) {
+        e.push("Enter valid compensation amounts");
+      }
+      if (f.applyMethod === "external" && !/^https:\/\//.test(f.externalUrl)) e.push("External application URL must start with https://");
+      if (!aiApproved) e.push("Review and approve the AI-generated description before publishing");
+      if (atLimit) e.push(`Listing limit reached (${planUsage[0].limit}). Pause a listing or upgrade your plan`);
+    }
     return e;
   };
 
-  const publish = () => {
-    const e = validate();
+  const submitListing = async (status: "draft" | "published") => {
+    const e = validate(status);
     dispatch({ type: "set-errors", errors: e });
     if (e.length) { window.scrollTo({ top: 0, behavior: "smooth" }); return; }
-    dispatch({ type: "set-published", published: true });
+
+    dispatch({ type: "set-submitting", submitting: true });
+    try {
+      const countryCodes: Record<string, string> = {
+        Nigeria: "NG",
+        Ghana: "GH",
+        Kenya: "KE",
+        "South Africa": "ZA",
+      };
+      const durationMatch = f.duration.match(/(\d+)\s*(week|month|year)/i);
+      const durationWeeks = durationMatch
+        ? Number(durationMatch[1]) *
+          (durationMatch[2].toLowerCase() === "year"
+            ? 52
+            : durationMatch[2].toLowerCase() === "month"
+              ? 4
+              : 1)
+        : null;
+      const responsibilities = [
+        f.responsibilities.some((item) => item.trim())
+          ? `Responsibilities:\n${f.responsibilities.filter((item) => item.trim()).map((item) => `- ${item.trim()}`).join("\n")}`
+          : "",
+        f.requirements.some((item) => item.trim())
+          ? `Requirements:\n${f.requirements.filter((item) => item.trim()).map((item) => `- ${item.trim()}`).join("\n")}`
+          : "",
+        f.instructions.trim() ? `Application instructions:\n${f.instructions.trim()}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+
+      const fields = {
+        title: f.title.trim(),
+        description: f.description.trim(),
+        responsibilities,
+        opportunity_type: f.type,
+        employment_type: f.type,
+        experience_level: f.level,
+        is_paid: f.paid === "paid" || (!isInternship && f.paid !== "unpaid"),
+        compensation_min: showComp && f.min ? Number(f.min) : null,
+        compensation_max: showComp && f.max ? Number(f.max) : null,
+        currency: showComp ? f.currency : null,
+        payment_frequency: showComp ? f.frequency : null,
+        country: countryCodes[f.country] ?? null,
+        location: f.location.trim() || null,
+        work_arrangement: f.arrangement,
+        skills_required: f.skills,
+        duration_weeks: durationWeeks,
+        start_date: f.startDate || null,
+        application_deadline: f.deadline
+          ? new Date(`${f.deadline}T23:59:59.000Z`).toISOString()
+          : null,
+        openings: f.openings ? Number(f.openings) : null,
+        status,
+        external_apply_url:
+          f.applyMethod === "external" && f.externalUrl.trim()
+            ? f.externalUrl.trim()
+            : null,
+      };
+      if (id) {
+        await jobService.updateOpportunity(id, fields);
+      } else {
+        await jobService.createOpportunity({
+          company_id: companyId,
+          source_type: "employer",
+          ...fields,
+        });
+      }
+      dispatch({ type: "set-submission-status", status });
+    } catch (error: unknown) {
+      dispatch({
+        type: "set-errors",
+        errors: [
+          error instanceof Error
+            ? error.message
+            : "Unable to publish this listing",
+        ],
+      });
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } finally {
+      dispatch({ type: "set-submitting", submitting: false });
+    }
   };
 
   const generate = () => {
@@ -144,12 +384,29 @@ export function ListingEditorPage() {
     setTimeout(() => dispatch({ type: "set-ai", ai: { state: "ready", text: `As a ${f.title || "[role title]"} at Kora Ledger, you'll work with our team on ${f.responsibilities.filter(Boolean)[0]?.toLowerCase() || "[core responsibility]"}. This is a ${f.arrangement} ${isInternship ? "internship" : "role"}${f.duration ? ` lasting ${f.duration}` : ""}. You'll use ${f.skills.join(", ") || "[skills]"} day to day and receive structured mentorship from senior teammates.` } }), 800);
   };
 
-  if (published) {
+  if (id && (loadingExisting || loadError)) {
+    return loadError ? (
+      <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 p-5">
+        <p className="flex items-center gap-2 font-medium text-destructive"><AlertCircleIcon className="h-4 w-4" />{loadError}</p>
+        <Button asChild className="mt-3" variant="outline"><Link to="/employer/listings">Back to listings</Link></Button>
+      </div>
+    ) : (
+      <div role="status" className="flex items-center justify-center gap-2 rounded-xl border bg-card p-10 text-sm text-muted-foreground">
+        <Loader2Icon className="h-4 w-4 animate-spin" /> Loading listing…
+      </div>
+    );
+  }
+
+  if (submissionStatus) {
     return (
       <div className="mx-auto max-w-md py-12 text-center">
         <CheckCircle2Icon className="mx-auto h-14 w-14 text-success" />
-        <h1 className="mt-4 text-2xl font-bold">{existing ? "Listing updated" : "Listing published"}</h1>
-        <p className="mt-2 text-muted-foreground">{f.title} is live and visible to talent. Compensation and verification labels are shown on the listing.</p>
+        <h1 className="mt-4 text-2xl font-bold">{submissionStatus === "published" ? "Listing published" : "Draft saved"}</h1>
+        <p className="mt-2 text-muted-foreground">
+          {submissionStatus === "published"
+            ? `${f.title} is live and visible to talent.`
+            : `${f.title} has been saved as a draft.`}
+        </p>
         <div className="mt-6 flex justify-center gap-2">
           <Button asChild variant="outline" className="bg-card"><Link to="/employer/listings">All listings</Link></Button>
           <Button asChild><Link to="/employer/candidates">Go to candidates</Link></Button>
@@ -162,7 +419,7 @@ export function ListingEditorPage() {
     <div>
       <Link to="/employer/listings" className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"><ChevronLeftIcon className="h-4 w-4" /> Listings</Link>
       <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
-        <div><h1 className="text-2xl font-bold tracking-tight">{existing ? `Edit: ${existing.title}` : "Create opportunity"}</h1><p className="mt-1 text-sm text-muted-foreground">Fields marked * are required to publish. Drafts can be saved any time.</p></div>
+        <div><h1 className="text-2xl font-bold tracking-tight">{id ? `Edit: ${loadedTitle || "listing"}` : "Create opportunity"}</h1><p className="mt-1 text-sm text-muted-foreground">Fields marked * are required to publish. Drafts need a title and description.</p></div>
       </div>
 
       {errors.length > 0 && (
@@ -187,6 +444,22 @@ export function ListingEditorPage() {
               <div className="space-y-1.5"><Label htmlFor="le-open">Openings *</Label><Input id="le-open" type="number" min={1} value={f.openings} onChange={(e) => set("openings", e.target.value)} /></div>
             </div>
           </Section>
+
+          {companies.length > 1 && (
+            <Section title="Company">
+              <div className="space-y-1.5">
+                <Label htmlFor="le-company">Publish for *</Label>
+                <Select value={companyId} onValueChange={(value) => dispatch({ type: "set-company-id", companyId: value })}>
+                  <SelectTrigger id="le-company"><SelectValue placeholder="Choose a company" /></SelectTrigger>
+                  <SelectContent>
+                    {companies.map((company) => (
+                      <SelectItem key={company.id} value={company.id}>{company.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </Section>
+          )}
 
           <Section title="Location & schedule">
             <fieldset>
@@ -282,8 +555,18 @@ export function ListingEditorPage() {
             </ul>
             <p className="mt-4 text-xs text-muted-foreground">Uses 1 of {planUsage[0].limit} active listings ({planUsage[0].used} used).</p>
             <div className="mt-4 grid gap-2">
-              <Button onClick={publish}>{existing ? "Save & republish" : "Publish listing"}</Button>
-              <Button variant="outline" className="bg-card" onClick={() => toast("Draft saved")}>Save draft</Button>
+              <Button onClick={() => void submitListing("published")} disabled={submitting}>
+                {submitting ? <Loader2Icon className="animate-spin" /> : null}
+                {submitting ? "Saving…" : id ? "Save & publish" : "Publish listing"}
+              </Button>
+              <Button
+                variant="outline"
+                className="bg-card"
+                onClick={() => void submitListing("draft")}
+                disabled={submitting}
+              >
+                {id ? "Save as draft" : "Save draft"}
+              </Button>
             </div>
           </div>
         </aside>
